@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบคลังยา — โรงพยาบาล</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<!-- fonts: using system stack -->
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --border: #1e2d45;
+    --border2: #243450;
+    --text: #e2eaf7;
+    --text2: #8fa3c0;
+    --text3: #4e6585;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --green: #10b981;
+    --green2: #34d399;
+    --yellow: #f59e0b;
+    --yellow2: #fbbf24;
+    --red: #ef4444;
+    --red2: #f87171;
+    --orange: #f97316;
+    --orange2: #fb923c;
+    --purple: #8b5cf6;
+    --purple2: #a78bfa;
+    --card-radius: 12px;
+    --font: 'Sarabun', 'Tahoma', 'Segoe UI', 'Arial', sans-serif;
+    --mono: 'Consolas', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    position: fixed; top: 0; left: 0;
+    width: 220px; height: 100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 100;
+    padding: 0;
+  }
+  .sidebar-logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .logo-tag {
+    font-size: 9px; font-family: var(--mono);
+    color: var(--accent); letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .sidebar-logo h1 {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    line-height: 1.3;
+  }
+  .sidebar-logo span {
+    font-size: 11px; color: var(--text3); font-weight: 400;
+  }
+  .sidebar-nav { padding: 12px 0; flex: 1; overflow-y: auto; }
+  .nav-section {
+    font-size: 9px; font-family: var(--mono);
+    color: var(--text3); letter-spacing: 2px;
+    padding: 8px 20px 4px; text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px; cursor: pointer;
+    font-size: 13px; color: var(--text2);
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active {
+    background: rgba(59,130,246,.1);
+    color: var(--accent2);
+    border-left-color: var(--accent);
+  }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-bottom {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .gs-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--text3);
+  }
+  .gs-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3); flex-shrink: 0;
+    transition: background .3s;
+  }
+  .gs-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .gs-dot.error { background: var(--red); }
+
+  /* ── MAIN ── */
+  .main {
+    margin-left: 220px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .topbar-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    padding: 7px 16px; border-radius: 7px; border: none;
+    font-family: var(--font); font-size: 12px; cursor: pointer;
+    font-weight: 500; transition: all .15s; display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+  }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-ghost {
+    background: var(--bg3); color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--border); color: var(--text); }
+  .btn-sm { padding: 5px 12px; font-size: 11px; }
+
+  /* ── CONTENT ── */
+  .content { padding: 24px 28px; flex: 1; }
+
+  /* ── SETTINGS BANNER ── */
+  #settings-banner {
+    background: linear-gradient(135deg, rgba(59,130,246,.1), rgba(139,92,246,.1));
+    border: 1px solid rgba(59,130,246,.3);
+    border-radius: var(--card-radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  #settings-banner h3 { font-size: 13px; font-weight: 600; color: var(--accent2); margin-bottom: 10px; }
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 12px; }
+  .settings-item label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .settings-item input, .settings-item select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: var(--font);
+  }
+  .settings-item input:focus, .settings-item select:focus { outline: none; border-color: var(--accent); }
+
+  /* ── STAT CARDS ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: var(--card-radius) var(--card-radius) 0 0;
+  }
+  .stat-card.c-blue::before { background: var(--accent); }
+  .stat-card.c-yellow::before { background: var(--yellow); }
+  .stat-card.c-red::before { background: var(--red); }
+  .stat-card.c-orange::before { background: var(--orange); }
+  .stat-card.c-purple::before { background: var(--purple); }
+  .stat-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  .stat-card.active-card {
+    background: var(--bg3);
+    border-color: var(--accent);
+  }
+  .stat-icon { font-size: 22px; margin-bottom: 8px; }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; font-weight: 500; }
+  .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .stat-card.c-blue .stat-value { color: var(--accent2); }
+  .stat-card.c-yellow .stat-value { color: var(--yellow2); }
+  .stat-card.c-red .stat-value { color: var(--red2); }
+  .stat-card.c-orange .stat-value { color: var(--orange2); }
+  .stat-card.c-purple .stat-value { color: var(--purple2); }
+  .stat-hint { font-size: 10px; color: var(--text3); margin-top: 6px; }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg3);
+  }
+  .panel-header h2 {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-badge {
+    font-size: 10px; font-family: var(--mono);
+    padding: 2px 8px; border-radius: 20px; font-weight: 500;
+  }
+  .badge-blue { background: rgba(59,130,246,.2); color: var(--accent2); }
+  .badge-yellow { background: rgba(245,158,11,.2); color: var(--yellow2); }
+  .badge-red { background: rgba(239,68,68,.2); color: var(--red2); }
+  .badge-orange { background: rgba(249,115,22,.2); color: var(--orange2); }
+  .badge-purple { background: rgba(139,92,246,.2); color: var(--purple2); }
+  .badge-green { background: rgba(16,185,129,.2); color: var(--green2); }
+  .panel-body { padding: 0; }
+
+  /* ── DETAIL PANEL ── */
+  .detail-panel {
+    display: none;
+    animation: fadeSlide .2s ease;
+  }
+  .detail-panel.show { display: block; }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th {
+    padding: 10px 14px; text-align: left;
+    font-size: 10px; color: var(--text3); font-weight: 600;
+    letter-spacing: .5px; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3); position: sticky; top: 0; z-index: 1;
+  }
+  .data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2); vertical-align: middle;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,.02); }
+  .drug-name { color: var(--text); font-weight: 500; font-size: 12px; }
+  .lot-tag {
+    font-family: var(--mono); font-size: 10px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    padding: 2px 7px; border-radius: 4px; color: var(--text3);
+  }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 600; font-family: var(--mono);
+  }
+  .pill-red { background: rgba(239,68,68,.15); color: var(--red2); }
+  .pill-yellow { background: rgba(245,158,11,.15); color: var(--yellow2); }
+  .pill-orange { background: rgba(249,115,22,.15); color: var(--orange2); }
+  .pill-green { background: rgba(16,185,129,.15); color: var(--green2); }
+  .pill-blue { background: rgba(59,130,246,.15); color: var(--accent2); }
+  .pill-purple { background: rgba(139,92,246,.15); color: var(--purple2); }
+
+  /* ── CHART SECTION ── */
+  .chart-controls {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+    background: var(--bg3);
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+  .ctrl-group label { font-size: 10px; color: var(--text3); font-weight: 500; }
+  .ctrl-group input, .ctrl-group select {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--text); padding: 6px 10px;
+    font-size: 12px; font-family: var(--font); min-width: 120px;
+  }
+  .ctrl-group input:focus, .ctrl-group select:focus { outline: none; border-color: var(--accent); }
+  .drug-select-wrap { position: relative; }
+  #drug-multi { height: 100px; min-width: 200px; }
+  .chart-wrap { padding: 20px; position: relative; min-height: 300px; }
+
+  /* ── SEARCH / FILTER ── */
+  .filter-bar {
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+    background: var(--bg2);
+  }
+  .filter-bar input {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--text); padding: 7px 12px; font-size: 12px;
+    font-family: var(--font);
+  }
+  .filter-bar input:focus { outline: none; border-color: var(--accent); }
+  .filter-bar select {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 12px;
+    font-family: var(--font);
+  }
+
+  /* ── GS MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 999; display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 28px; width: 520px; max-width: 95vw;
+  }
+  .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .modal p { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+  .modal input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); padding: 10px 14px; font-size: 13px;
+    font-family: var(--font); margin-bottom: 12px;
+  }
+  .modal input:focus { outline: none; border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+  .modal-hint {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;
+    font-size: 11px; color: var(--text2); line-height: 1.7;
+    font-family: var(--mono);
+  }
+
+  /* ── LOADING ── */
+  .loading-overlay {
+    position: absolute; inset: 0;
+    background: rgba(11,15,26,.8); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--card-radius); z-index: 10;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── EMPTY ── */
+  .empty-state {
+    padding: 48px 20px; text-align: center; color: var(--text3); font-size: 13px;
+  }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1100px) {
+    .stat-grid { grid-template-columns: repeat(3,1fr); }
+  }
+  @media (max-width: 700px) {
+    .sidebar { width: 0; overflow: hidden; }
+    .main { margin-left: 0; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── PREDICT BADGE ── */
+  .days-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-family: var(--mono);
+  }
+  .days-critical { color: var(--red2); }
+  .days-warn { color: var(--yellow2); }
+  .days-ok { color: var(--green2); }
+
+  /* scrollable table container */
+  .table-container { overflow-x: auto; max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  document.body.innerHTML = '<div style="background:#0b0f1a;color:#f87171;font-family:monospace;padding:40px;min-height:100vh;">'
+    + '<h2 style="color:#60a5fa;margin-bottom:16px;">⚠️ JavaScript Error</h2>'
+    + '<p style="margin-bottom:8px;"><b>Error:</b> ' + msg + '</p>'
+    + '<p style="margin-bottom:8px;"><b>File:</b> ' + src + '</p>'
+    + '<p style="margin-bottom:8px;"><b>Line:</b> ' + line + '</p>'
+    + '<p style="color:#8fa3c0;margin-top:24px;">ส่งข้อความ error นี้ให้ทีม IT หรือ screenshot แล้วส่งมา</p>'
+    + '</div>';
+  return false;
+};
+</script>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-tag">Hospital Pharmacy</div>
+    <h1>ระบบคลังยา</h1>
+    <span>Drug Inventory System</span>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="setPage('dashboard')">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="setPage('inventory')">
+      <span class="nav-icon">📦</span> คลังยาทั้งหมด
+    </div>
+    <div class="nav-item" onclick="setPage('chart')">
+      <span class="nav-icon">📈</span> กราฟแนวโน้ม
+    </div>
+    <div class="nav-section">การแจ้งเตือน</div>
+    <div class="nav-item" onclick="openPanel('expiry')">
+      <span class="nav-icon">⏰</span> ใกล้หมดอายุ
+    </div>
+    <div class="nav-item" onclick="openPanel('deadstock')">
+      <span class="nav-icon">💤</span> Dead Stock
+    </div>
+    <div class="nav-item" onclick="openPanel('reorder')">
+      <span class="nav-icon">🔄</span> ถึง Reorder Point
+    </div>
+    <div class="nav-item" onclick="openPanel('min')">
+      <span class="nav-icon">⚠️</span> ถึงระดับ Min
+    </div>
+  </div>
+  <div class="sidebar-bottom">
+    <div class="gs-status">
+      <div class="gs-dot" id="gs-dot"></div>
+      <span id="gs-status-text">ยังไม่ได้เชื่อมต่อ</span>
+    </div>
+    <div style="margin-top:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="showGSModal()" style="width:100%;justify-content:center;">
+        ⚙️ ตั้งค่า Google Sheets
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">🏥 Dashboard คลังยา</div>
+      <div class="topbar-sub" id="page-sub">ภาพรวมสถานะยาในโรงพยาบาล</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="loadData()">🔄 รีเฟรชข้อมูล</button>
+      <button class="btn btn-ghost" onclick="toggleSettings()">⚙️ ตั้งค่า</button>
+      <button class="btn btn-primary" onclick="showGSModal()">🔗 เชื่อม Google Sheets</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- SETTINGS BANNER -->
+    <div id="settings-banner">
+      <h3>⚙️ ตั้งค่าระบบ</h3>
+      <div class="settings-grid">
+        <div class="settings-item">
+          <label>ใกล้หมดอายุ (ภายในกี่เดือน)</label>
+          <input type="number" id="expiry-months" value="6" min="1" max="24" onchange="recalc()">
+        </div>
+        <div class="settings-item">
+          <label>Dead Stock (ไม่มีการรับเข้านานกี่เดือน)</label>
+          <input type="number" id="dead-months" value="6" min="1" max="24" onchange="recalc()">
+        </div>
+        <div class="settings-item">
+          <label>วันเฉลี่ยต่อเดือน (สำหรับคาดการณ์)</label>
+          <input type="number" id="avg-days-per-month" value="30" min="1" max="31" onchange="recalc()">
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: DASHBOARD -->
+    <div id="page-dashboard">
+      <!-- STAT CARDS -->
+      <div class="stat-grid">
+        <div class="stat-card c-blue" onclick="openPanel('all')">
+          <div class="stat-icon">💊</div>
+          <div class="stat-label">รายการยาทั้งหมด</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-hint">คลิกเพื่อดูรายการ</div>
+        </div>
+        <div class="stat-card c-yellow" onclick="openPanel('expiry')">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-label">ใกล้หมดอายุ</div>
+          <div class="stat-value" id="stat-expiry">—</div>
+          <div class="stat-hint">ภายใน 6 เดือน · คลิกดูรายการ</div>
+        </div>
+        <div class="stat-card c-red" onclick="openPanel('deadstock')">
+          <div class="stat-icon">💤</div>
+          <div class="stat-label">Dead Stock</div>
+          <div class="stat-value" id="stat-dead">—</div>
+          <div class="stat-hint">ไม่มีการรับเข้า 6 เดือน · คลิกดูรายการ</div>
+        </div>
+        <div class="stat-card c-orange" onclick="openPanel('reorder')">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-label">ถึง Reorder Point</div>
+          <div class="stat-value" id="stat-reorder">—</div>
+          <div class="stat-hint">ต้องสั่งซื้อ · คลิกดูรายการ</div>
+        </div>
+        <div class="stat-card c-purple" onclick="openPanel('min')">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-label">ถึงระดับ Min</div>
+          <div class="stat-value" id="stat-min">—</div>
+          <div class="stat-hint">วิกฤต · คลิกดูรายการ</div>
+        </div>
+      </div>
+
+      <!-- DETAIL PANELS -->
+      <div class="detail-panel" id="panel-all">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>💊 รายการยาทั้งหมด <span class="panel-badge badge-blue" id="badge-all">0</span></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel('all')">✕ ปิด</button>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="search-all" placeholder="🔍 ค้นหาชื่อยา..." oninput="renderAllTable()">
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table class="data-table" id="table-all">
+                <thead><tr>
+                  <th>ชื่อยา</th><th>Lot</th><th>คงเหลือ</th>
+                  <th>Min</th><th>Reorder</th><th>Max</th><th>วันที่รับล่าสุด</th><th>สถานะ</th>
+                </tr></thead>
+                <tbody id="tbody-all"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-panel" id="panel-expiry">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>⏰ ยาใกล้หมดอายุ <span class="panel-badge badge-yellow" id="badge-expiry">0</span></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel('expiry')">✕ ปิด</button>
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr>
+                  <th>ชื่อยา</th><th>Lot</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>เหลือเวลา</th><th>สถานะ</th>
+                </tr></thead>
+                <tbody id="tbody-expiry"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-panel" id="panel-deadstock">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>💤 Dead Stock <span class="panel-badge badge-red" id="badge-dead">0</span></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel('deadstock')">✕ ปิด</button>
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr>
+                  <th>ชื่อยา</th><th>Lot</th><th>คงเหลือ</th><th>วันรับเข้าล่าสุด</th><th>ไม่มีการเคลื่อนไหว</th><th>วันหมดอายุ</th>
+                </tr></thead>
+                <tbody id="tbody-dead"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-panel" id="panel-reorder">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🔄 ถึง Reorder Point <span class="panel-badge badge-orange" id="badge-reorder">0</span></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel('reorder')">✕ ปิด</button>
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr>
+                  <th>ชื่อยา</th><th>Lot</th><th>คงเหลือ</th><th>Reorder Point</th><th>Max</th>
+                  <th>ควรสั่งซื้อ</th><th>คาดการณ์หมดใน</th>
+                </tr></thead>
+                <tbody id="tbody-reorder"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-panel" id="panel-min">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>⚠️ ถึงระดับ Min (วิกฤต) <span class="panel-badge badge-purple" id="badge-min">0</span></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel('min')">✕ ปิด</button>
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr>
+                  <th>ชื่อยา</th><th>Lot</th><th>คงเหลือ</th><th>Min</th><th>คาดการณ์หมดใน</th><th>สถานะ</th>
+                </tr></thead>
+                <tbody id="tbody-min"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: INVENTORY -->
+    <div id="page-inventory" style="display:none;">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>📦 คลังยาทั้งหมด <span class="panel-badge badge-blue" id="inv-badge">0</span></h2>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="inv-search" placeholder="🔍 ค้นหาชื่อยา..." oninput="renderInventory()">
+          <select id="inv-filter" onchange="renderInventory()">
+            <option value="all">ทุกสถานะ</option>
+            <option value="expiry">ใกล้หมดอายุ</option>
+            <option value="dead">Dead Stock</option>
+            <option value="reorder">ถึง Reorder</option>
+            <option value="min">ถึง Min</option>
+            <option value="normal">ปกติ</option>
+          </select>
+        </div>
+        <div class="panel-body">
+          <div class="table-container">
+            <table class="data-table">
+              <thead><tr>
+                <th>ชื่อยา</th><th>Lot</th><th>รับเข้า</th><th>คงเหลือ</th>
+                <th>Min</th><th>Reorder</th><th>Max</th><th>วันหมดอายุ</th><th>สถานะ</th>
+              </tr></thead>
+              <tbody id="tbody-inv"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: CHART -->
+    <div id="page-chart" style="display:none;">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>📈 กราฟแนวโน้มปริมาณยา</h2>
+        </div>
+        <div class="chart-controls">
+          <div class="ctrl-group">
+            <label>เลือกยา (Ctrl+คลิก เพื่อเลือกหลายตัว)</label>
+            <select id="drug-multi" multiple></select>
+          </div>
+          <div class="ctrl-group">
+            <label>วันที่เริ่มต้น</label>
+            <input type="date" id="chart-date-from">
+          </div>
+          <div class="ctrl-group">
+            <label>วันที่สิ้นสุด</label>
+            <input type="date" id="chart-date-to">
+          </div>
+          <div class="ctrl-group" style="justify-content:flex-end;">
+            <button class="btn btn-primary" onclick="renderChart()">📊 แสดงกราฟ</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="trend-chart"></canvas>
+          <div class="empty-state" id="chart-empty">
+            <div class="empty-icon">📈</div>
+            <div>เลือกยาและช่วงวันที่ แล้วกด "แสดงกราฟ"</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GS MODAL -->
+<div class="modal-overlay" id="gs-modal">
+  <div class="modal">
+    <h2>🔗 เชื่อมต่อ Google Sheets</h2>
+    <p>ใส่ URL ของ Google Apps Script Web App ที่ deploy แล้ว</p>
+    <div class="modal-hint">
+      <span style="color:var(--yellow2);font-weight:600;">⚠️ ตรวจสอบการ Deploy:</span><br>
+      1. Extensions → Apps Script → วาง code → Save<br>
+      2. Deploy → <span style="color:var(--accent2);">New Deployment</span><br>
+      3. Type: Web App | Execute as: <span style="color:var(--accent2);">Me</span><br>
+      4. Who has access: <span style="color:var(--green2);font-weight:700;">Anyone</span> ← สำคัญมาก!<br>
+      5. กด Deploy → คัดลอก URL มาใส่ด้านล่าง<br><br>
+      <span style="color:var(--text3);">📋 คอลัมน์: A=วันที่รับเข้า B=ชื่อยา C=Max D=Reorder E=Min F=Lot G=จำนวนรับเข้า H=คงเหลือ I=วันหมดอายุ</span>
+    </div>
+    <input type="text" id="gs-url-input" placeholder="https://script.google.com/macros/s/xxx/exec">
+    <div id="test-result" style="display:none;padding:8px 12px;border-radius:6px;font-size:11px;font-family:var(--mono);margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="testConnection()" style="flex:1;justify-content:center;">🔍 ทดสอบการเชื่อมต่อ</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadSampleData();closeGSModal();" style="flex:1;justify-content:center;">🧪 ใช้ข้อมูล Demo</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeGSModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveGSUrl()">✅ บันทึกและโหลด</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+//  STATE
+// ──────────────────────────────────────────────
+let rawData = [];
+let gsUrl = localStorage.getItem('gs_url') || '';
+let chartInstance = null;
+let currentPage = 'dashboard';
+let openPanelId = null;
+
+// ──────────────────────────────────────────────
+//  INIT
+// ──────────────────────────────────────────────
+window.onload = () => {
+  setDefaultDates();
+  if (gsUrl) {
+    document.getElementById('gs-url-input').value = gsUrl;
+    loadData();
+  } else {
+    loadSampleData();
+  }
+};
+
+function setDefaultDates() {
+  const today = new Date();
+  const sixMoAgo = new Date(today); sixMoAgo.setMonth(sixMoAgo.getMonth() - 6);
+  document.getElementById('chart-date-from').value = fmtDate(sixMoAgo);
+  document.getElementById('chart-date-to').value = fmtDate(today);
+}
+
+function fmtDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+// ──────────────────────────────────────────────
+//  NAVIGATION
+// ──────────────────────────────────────────────
+function setPage(p) {
+  currentPage = p;
+  ['dashboard','inventory','chart'].forEach(x => {
+    document.getElementById('page-' + x).style.display = x === p ? 'block' : 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const titles = {
+    dashboard: ['🏥 Dashboard คลังยา', 'ภาพรวมสถานะยาในโรงพยาบาล'],
+    inventory: ['📦 คลังยาทั้งหมด', 'รายการยาและสถานะทั้งหมด'],
+    chart: ['📈 กราฟแนวโน้ม', 'ติดตามปริมาณยาตามช่วงเวลา'],
+  };
+  document.getElementById('page-title').textContent = titles[p][0];
+  document.getElementById('page-sub').textContent = titles[p][1];
+  if (p === 'inventory') renderInventory();
+  if (p === 'chart') populateDrugSelect();
+}
+
+function openPanel(id) {
+  if (openPanelId && openPanelId !== id) closePanel(openPanelId);
+  openPanelId = id;
+  const panels = ['all','expiry','deadstock','reorder','min'];
+  panels.forEach(x => {
+    const el = document.getElementById('panel-' + x);
+    if (el) el.classList.toggle('show', x === id);
+  });
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-card'));
+  if (id !== 'all') {
+    const map = {expiry:1,deadstock:2,reorder:3,min:4};
+    const cards = document.querySelectorAll('.stat-card');
+    if (map[id] !== undefined && cards[map[id]]) cards[map[id]].classList.add('active-card');
+  }
+  setPage('dashboard');
+}
+
+function closePanel(id) {
+  const el = document.getElementById('panel-' + id);
+  if (el) el.classList.remove('show');
+  openPanelId = null;
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-card'));
+}
+
+function toggleSettings() {
+  const b = document.getElementById('settings-banner');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+// ──────────────────────────────────────────────
+//  GOOGLE SHEETS
+// ──────────────────────────────────────────────
+function showGSModal() { document.getElementById('gs-modal').classList.add('show'); }
+function closeGSModal() { document.getElementById('gs-modal').classList.remove('show'); }
+
+function saveGSUrl() {
+  gsUrl = document.getElementById('gs-url-input').value.trim();
+  localStorage.setItem('gs_url', gsUrl);
+  closeGSModal();
+  loadData();
+}
+
+async function testConnection() {
+  const url = document.getElementById('gs-url-input').value.trim();
+  const div = document.getElementById('test-result');
+  div.style.display = 'block';
+  div.style.background = 'var(--bg3)';
+  div.style.color = 'var(--text2)';
+  div.style.border = '1px solid var(--border2)';
+  div.textContent = 'กำลังทดสอบ...';
+  if (!url) { div.textContent = 'กรุณาใส่ URL ก่อน'; div.style.color = 'var(--red2)'; return; }
+  try {
+    const pingUrl = url.includes('?') ? url + '&action=ping' : url + '?action=ping';
+    const res = await fetch(pingUrl, { method: 'GET', redirect: 'follow' });
+    const text = await res.text();
+    const json = JSON.parse(text);
+    if (json.status === 'ok') {
+      div.innerHTML = 'เชื่อมต่อสำเร็จ! Sheet: ' + (json.sheet||'-') + ' | เวลา: ' + (json.time||'-');
+      div.style.color = 'var(--green2)'; div.style.background = 'rgba(16,185,129,.1)'; div.style.border = '1px solid rgba(16,185,129,.3)';
+    } else {
+      div.textContent = 'ตอบกลับแล้วแต่มี error: ' + JSON.stringify(json);
+      div.style.color = 'var(--yellow2)';
+    }
+  } catch(e) {
+    const isFile = location.protocol === 'file:';
+    div.style.color = 'var(--red2)'; div.style.background = 'rgba(239,68,68,.1)'; div.style.border = '1px solid rgba(239,68,68,.3)';
+    if (isFile) {
+      div.innerHTML = 'CORS Error - เปิดไฟล์จาก file:// ไม่ได้ ต้องเปิดผ่าน web server (VS Code Live Server หรืออัปโหลดขึ้น server)';
+    } else {
+      div.innerHTML = e.message + ' - ตรวจสอบ: Deploy ใหม่ด้วย Who has access: Anyone';
+    }
+  }
+}
+
+async function loadData() {
+  if (!gsUrl) { loadSampleData(); return; }
+  setStatus('loading');
+  try {
+    // Google Apps Script Web App ต้องการ redirect follow
+    // และต้องใช้ mode: 'cors' — GAS จะคืน CORS header อัตโนมัติเมื่อ access = Anyone
+    const url = gsUrl.includes('?') ? gsUrl + '&action=getData' : gsUrl + '?action=getData';
+    const res = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch(pe) {
+      throw new Error('ข้อมูลที่ได้รับไม่ใช่ JSON: ' + text.slice(0, 100));
+    }
+    if (json.error) throw new Error('Apps Script error: ' + json.error);
+    rawData = parseGSData(json);
+    setStatus('connected');
+    recalc();
+  } catch(e) {
+    console.error('loadData error:', e);
+    setStatus('error');
+    // แสดง dialog ช่วย debug
+    showFetchError(e.message);
+  }
+}
+
+function showFetchError(msg) {
+  const isFileProt = location.protocol === 'file:';
+  const hint = isFileProt
+    ? '\n\n💡 คุณกำลังเปิดไฟล์จาก file:// ซึ่ง browser บล็อก CORS\n→ แก้ไข: อัปโหลดไฟล์ไปไว้บน web server หรือใช้ Live Server extension'
+    : '\n\n💡 ตรวจสอบ:\n1. Deploy ใหม่ด้วย "Who has access: Anyone"\n2. ใช้ URL จาก Deploy ล่าสุด (ไม่ใช่ตัวเก่า)\n3. ลอง testPing() ใน Apps Script Editor ก่อน';
+  alert('โหลดข้อมูลไม่สำเร็จ\n' + msg + hint);
+}
+
+function parseGSData(json) {
+  // expects array of arrays: [date, name, max, reorder, min, lot, qtyIn, qtyLeft, expiry]
+  const rows = Array.isArray(json.values) ? json.values : json;
+  return rows.slice(1).map(r => ({
+    date: new Date(r[0]),
+    name: r[1] || '',
+    max: +r[2] || 0,
+    reorder: +r[3] || 0,
+    min: +r[4] || 0,
+    lot: r[5] || '',
+    qtyIn: +r[6] || 0,
+    qtyLeft: +r[7] || 0,
+    expiry: r[8] ? new Date(r[8]) : null,
+  })).filter(r => r.name);
+}
+
+function setStatus(s) {
+  const dot = document.getElementById('gs-dot');
+  const txt = document.getElementById('gs-status-text');
+  dot.className = 'gs-dot ' + (s === 'connected' ? 'connected' : s === 'error' ? 'error' : '');
+  txt.textContent = s === 'connected' ? 'เชื่อมต่อแล้ว' : s === 'error' ? 'เชื่อมต่อไม่ได้' : 'กำลังโหลด...';
+}
+
+// ──────────────────────────────────────────────
+//  SAMPLE DATA
+// ──────────────────────────────────────────────
+function loadSampleData() {
+  const today = new Date();
+  const ago = (d) => { const x = new Date(today); x.setDate(x.getDate()-d); return x; };
+  const fwd = (d) => { const x = new Date(today); x.setDate(x.getDate()+d); return x; };
+  rawData = [
+    // name, max, reorder, min, lot, qtyIn, qtyLeft, expiry, date
+    {name:'Amoxicillin 500mg', max:5000, reorder:1000, min:500, lot:'LOT-A001', qtyIn:5000, qtyLeft:3200, expiry:fwd(250), date:ago(30)},
+    {name:'Amoxicillin 500mg', max:5000, reorder:1000, min:500, lot:'LOT-A002', qtyIn:2000, qtyLeft:1800, expiry:fwd(80), date:ago(10)},
+    {name:'Paracetamol 500mg', max:10000, reorder:2000, min:1000, lot:'LOT-P001', qtyIn:10000, qtyLeft:800, expiry:fwd(365), date:ago(90)},
+    {name:'Metformin 500mg', max:3000, reorder:600, min:300, lot:'LOT-M001', qtyIn:3000, qtyLeft:550, expiry:fwd(400), date:ago(60)},
+    {name:'Amlodipine 5mg', max:4000, reorder:800, min:400, lot:'LOT-AM01', qtyIn:4000, qtyLeft:390, expiry:fwd(500), date:ago(45)},
+    {name:'Atorvastatin 20mg', max:2000, reorder:400, min:200, lot:'LOT-AT01', qtyIn:2000, qtyLeft:180, expiry:fwd(600), date:ago(120)},
+    {name:'Omeprazole 20mg', max:3000, reorder:600, min:300, lot:'LOT-O001', qtyIn:3000, qtyLeft:2800, expiry:fwd(50), date:ago(5)},
+    {name:'Losartan 50mg', max:2500, reorder:500, min:250, lot:'LOT-L001', qtyIn:2500, qtyLeft:240, expiry:fwd(700), date:ago(200)},
+    {name:'Prednisolone 5mg', max:5000, reorder:1000, min:500, lot:'LOT-PR01', qtyIn:5000, qtyLeft:4900, expiry:fwd(150), date:ago(240)},
+    {name:'Diclofenac 50mg', max:4000, reorder:800, min:400, lot:'LOT-D001', qtyIn:4000, qtyLeft:3800, expiry:fwd(30), date:ago(270)},
+    {name:'Cetirizine 10mg', max:6000, reorder:1200, min:600, lot:'LOT-C001', qtyIn:6000, qtyLeft:5500, expiry:fwd(180), date:ago(15)},
+    {name:'Simvastatin 20mg', max:1500, reorder:300, min:150, lot:'LOT-S001', qtyIn:1500, qtyLeft:1400, expiry:fwd(45), date:ago(300)},
+    {name:'Metoprolol 50mg', max:2000, reorder:400, min:200, lot:'LOT-ME01', qtyIn:2000, qtyLeft:1950, expiry:fwd(60), date:ago(280)},
+    {name:'Furosemide 40mg', max:3000, reorder:600, min:300, lot:'LOT-F001', qtyIn:3000, qtyLeft:290, expiry:fwd(800), date:ago(50)},
+    {name:'Allopurinol 100mg', max:2000, reorder:400, min:200, lot:'LOT-AL01', qtyIn:2000, qtyLeft:195, expiry:fwd(900), date:ago(75)},
+    // historical for chart
+    {name:'Paracetamol 500mg', max:10000, reorder:2000, min:1000, lot:'LOT-P000', qtyIn:10000, qtyLeft:5000, expiry:fwd(700), date:ago(180)},
+    {name:'Paracetamol 500mg', max:10000, reorder:2000, min:1000, lot:'LOT-P000', qtyIn:0, qtyLeft:3000, expiry:fwd(700), date:ago(120)},
+    {name:'Amoxicillin 500mg', max:5000, reorder:1000, min:500, lot:'LOT-A000', qtyIn:5000, qtyLeft:2000, expiry:fwd(400), date:ago(120)},
+    {name:'Amoxicillin 500mg', max:5000, reorder:1000, min:500, lot:'LOT-A000', qtyIn:0, qtyLeft:1000, expiry:fwd(400), date:ago(60)},
+    {name:'Metformin 500mg', max:3000, reorder:600, min:300, lot:'LOT-M000', qtyIn:3000, qtyLeft:1800, expiry:fwd(600), date:ago(150)},
+    {name:'Metformin 500mg', max:3000, reorder:600, min:300, lot:'LOT-M000', qtyIn:0, qtyLeft:900, expiry:fwd(600), date:ago(90)},
+  ];
+  setStatus('connected');
+  document.getElementById('gs-dot').classList.add('connected');
+  document.getElementById('gs-status-text').textContent = 'Demo Mode';
+  recalc();
+}
+
+// ──────────────────────────────────────────────
+//  CALCULATIONS
+// ──────────────────────────────────────────────
+function getSettings() {
+  return {
+    expiryMonths: +document.getElementById('expiry-months').value || 6,
+    deadMonths: +document.getElementById('dead-months').value || 6,
+    avgDays: +document.getElementById('avg-days-per-month').value || 30,
+  };
+}
+
+// Aggregate: latest entry per drug (max qtyLeft across lots = total stock per drug for level checks)
+// But keep lot detail for tables
+function aggregateByDrug() {
+  const map = {};
+  rawData.forEach(r => {
+    if (!map[r.name]) {
+      map[r.name] = {
+        name: r.name, max: r.max, reorder: r.reorder, min: r.min,
+        lots: [], totalLeft: 0, latestDate: null, earliestExpiry: null,
+      };
+    }
+    const d = map[r.name];
+    d.lots.push(r);
+    d.totalLeft += r.qtyLeft;
+    if (!d.latestDate || r.date > d.latestDate) d.latestDate = r.date;
+    if (r.expiry && (!d.earliestExpiry || r.expiry < d.earliestExpiry)) d.earliestExpiry = r.expiry;
+  });
+  return Object.values(map);
+}
+
+function recalc() {
+  const s = getSettings();
+  const today = new Date();
+  const expiryThreshold = new Date(today);
+  expiryThreshold.setMonth(expiryThreshold.getMonth() + s.expiryMonths);
+  const deadThreshold = new Date(today);
+  deadThreshold.setMonth(deadThreshold.getMonth() - s.deadMonths);
+
+  const drugs = aggregateByDrug();
+
+  // categorize
+  const expiry = [], dead = [], reorder = [], min_ = [];
+
+  drugs.forEach(d => {
+    const stock = d.totalLeft;
+    const isExpiring = d.earliestExpiry && d.earliestExpiry <= expiryThreshold && d.earliestExpiry >= today;
+    const isDead = d.latestDate && d.latestDate <= deadThreshold;
+    const isReorder = stock <= d.reorder;
+    const isMin = stock <= d.min;
+
+    if (isExpiring) expiry.push(d);
+    if (isDead) dead.push(d);
+    if (isReorder && !isMin) reorder.push(d);
+    if (isMin) min_.push(d);
+  });
+
+  // update stats
+  document.getElementById('stat-total').textContent = drugs.length;
+  document.getElementById('stat-expiry').textContent = expiry.length;
+  document.getElementById('stat-dead').textContent = dead.length;
+  document.getElementById('stat-reorder').textContent = reorder.length;
+  document.getElementById('stat-min').textContent = min_.length;
+
+  document.getElementById('badge-all').textContent = drugs.length;
+  document.getElementById('badge-expiry').textContent = expiry.length;
+  document.getElementById('badge-dead').textContent = dead.length;
+  document.getElementById('badge-reorder').textContent = reorder.length;
+  document.getElementById('badge-min').textContent = min_.length;
+
+  // render tables
+  renderExpiryTable(expiry);
+  renderDeadTable(dead);
+  renderReorderTable(reorder);
+  renderMinTable(min_);
+  renderAllTable();
+  renderInventory();
+  populateDrugSelect();
+
+  document.getElementById('inv-badge').textContent = drugs.length;
+}
+
+// ──────────────────────────────────────────────
+//  TABLE RENDERERS
+// ──────────────────────────────────────────────
+function daysUntil(d) {
+  if (!d) return null;
+  return Math.round((d - new Date()) / 86400000);
+}
+function daysSince(d) {
+  if (!d) return null;
+  return Math.round((new Date() - d) / 86400000);
+}
+function expiryPill(d) {
+  if (!d) return '<span class="pill pill-blue">ไม่ระบุ</span>';
+  const days = daysUntil(d);
+  if (days < 0) return '<span class="pill pill-red">หมดอายุแล้ว</span>';
+  if (days <= 30) return `<span class="pill pill-red">⚠ ${days} วัน</span>`;
+  if (days <= 90) return `<span class="pill pill-orange">${days} วัน</span>`;
+  if (days <= 180) return `<span class="pill pill-yellow">${days} วัน</span>`;
+  return `<span class="pill pill-green">${days} วัน</span>`;
+}
+function predictDays(stock, max, reorder) {
+  // crude: assume avg consumption from max-min over ~90 days
+  const s = getSettings();
+  const dailyRate = (max - reorder) / 90; // rough estimate
+  if (!dailyRate) return null;
+  return Math.round(stock / dailyRate);
+}
+function daysBadge(days) {
+  if (days === null) return '<span class="text2">—</span>';
+  const cls = days < 7 ? 'days-critical' : days < 30 ? 'days-warn' : 'days-ok';
+  return `<span class="days-badge ${cls}">⏱ ${days} วัน</span>`;
+}
+function statusPill(d) {
+  const stock = d.totalLeft;
+  if (stock <= d.min) return '<span class="pill pill-purple">⚠ Min</span>';
+  if (stock <= d.reorder) return '<span class="pill pill-orange">Reorder</span>';
+  return '<span class="pill pill-green">ปกติ</span>';
+}
+function thaiDate(d) {
+  if (!d) return '—';
+  return d.toLocaleDateString('th-TH', {year:'numeric',month:'short',day:'numeric'});
+}
+
+function renderExpiryTable(drugs) {
+  const tbody = document.getElementById('tbody-expiry');
+  if (!drugs.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div>ไม่มียาใกล้หมดอายุ</div></td></tr>`; return; }
+  tbody.innerHTML = drugs.flatMap(d =>
+    d.lots.filter(l => l.expiry && daysUntil(l.expiry) <= getSettings().expiryMonths*30).map(l => `
+      <tr>
+        <td class="drug-name">${d.name}</td>
+        <td><span class="lot-tag">${l.lot}</span></td>
+        <td>${l.qtyLeft.toLocaleString()}</td>
+        <td>${thaiDate(l.expiry)}</td>
+        <td>${expiryPill(l.expiry)}</td>
+        <td>${statusPill(d)}</td>
+      </tr>
+    `)
+  ).join('');
+}
+
+function renderDeadTable(drugs) {
+  const tbody = document.getElementById('tbody-dead');
+  if (!drugs.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div>ไม่มี Dead Stock</div></td></tr>`; return; }
+  tbody.innerHTML = drugs.map(d => `
+    <tr>
+      <td class="drug-name">${d.name}</td>
+      <td><span class="lot-tag">${d.lots.map(l=>l.lot).join(', ')}</span></td>
+      <td>${d.totalLeft.toLocaleString()}</td>
+      <td>${thaiDate(d.latestDate)}</td>
+      <td><span class="pill pill-red">${daysSince(d.latestDate)} วัน</span></td>
+      <td>${d.earliestExpiry ? thaiDate(d.earliestExpiry) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderReorderTable(drugs) {
+  const tbody = document.getElementById('tbody-reorder');
+  if (!drugs.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div>ยาทุกรายการอยู่เหนือ Reorder Point</div></td></tr>`; return; }
+  tbody.innerHTML = drugs.map(d => {
+    const orderQty = Math.max(0, d.max - d.totalLeft);
+    const days = predictDays(d.totalLeft, d.max, d.reorder);
+    return `<tr>
+      <td class="drug-name">${d.name}</td>
+      <td><span class="lot-tag">${d.lots.map(l=>l.lot).join(', ')}</span></td>
+      <td>${d.totalLeft.toLocaleString()}</td>
+      <td>${d.reorder.toLocaleString()}</td>
+      <td>${d.max.toLocaleString()}</td>
+      <td><span class="pill pill-orange">${orderQty.toLocaleString()}</span></td>
+      <td>${daysBadge(days)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMinTable(drugs) {
+  const tbody = document.getElementById('tbody-min');
+  if (!drugs.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div>ยาทุกรายการอยู่เหนือระดับ Min</div></td></tr>`; return; }
+  tbody.innerHTML = drugs.map(d => {
+    const days = predictDays(d.totalLeft, d.max, d.reorder);
+    return `<tr>
+      <td class="drug-name">${d.name}</td>
+      <td><span class="lot-tag">${d.lots.map(l=>l.lot).join(', ')}</span></td>
+      <td>${d.totalLeft.toLocaleString()}</td>
+      <td>${d.min.toLocaleString()}</td>
+      <td>${daysBadge(days)}</td>
+      <td><span class="pill pill-purple">⚠ วิกฤต</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAllTable() {
+  const q = (document.getElementById('search-all')?.value || '').toLowerCase();
+  const drugs = aggregateByDrug().filter(d => d.name.toLowerCase().includes(q));
+  const tbody = document.getElementById('tbody-all');
+  if (!tbody) return;
+  tbody.innerHTML = drugs.map(d => `
+    <tr>
+      <td class="drug-name">${d.name}</td>
+      <td><span class="lot-tag">${d.lots.map(l=>l.lot).join(', ')}</span></td>
+      <td>${d.totalLeft.toLocaleString()}</td>
+      <td>${d.min.toLocaleString()}</td>
+      <td>${d.reorder.toLocaleString()}</td>
+      <td>${d.max.toLocaleString()}</td>
+      <td>${thaiDate(d.latestDate)}</td>
+      <td>${statusPill(d)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="8"><div class="empty-state">ไม่พบข้อมูล</div></td></tr>`;
+}
+
+function renderInventory() {
+  const q = (document.getElementById('inv-search')?.value || '').toLowerCase();
+  const f = document.getElementById('inv-filter')?.value || 'all';
+  const s = getSettings();
+  const today = new Date();
+  const expiryThreshold = new Date(today); expiryThreshold.setMonth(expiryThreshold.getMonth() + s.expiryMonths);
+  const deadThreshold = new Date(today); deadThreshold.setMonth(deadThreshold.getMonth() - s.deadMonths);
+
+  const tbody = document.getElementById('tbody-inv');
+  if (!tbody) return;
+
+  let rows = rawData.filter(r => r.name.toLowerCase().includes(q));
+  if (f === 'expiry') rows = rows.filter(r => r.expiry && r.expiry <= expiryThreshold && r.expiry >= today);
+  else if (f === 'dead') rows = rows.filter(r => r.date && r.date <= deadThreshold);
+  else if (f === 'reorder') rows = rows.filter(r => r.qtyLeft <= r.reorder && r.qtyLeft > r.min);
+  else if (f === 'min') rows = rows.filter(r => r.qtyLeft <= r.min);
+  else if (f === 'normal') rows = rows.filter(r => r.qtyLeft > r.reorder);
+
+  rows.sort((a,b) => b.date - a.date);
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td class="drug-name">${r.name}</td>
+      <td><span class="lot-tag">${r.lot}</span></td>
+      <td>${r.qtyIn.toLocaleString()}</td>
+      <td>${r.qtyLeft.toLocaleString()}</td>
+      <td>${r.min.toLocaleString()}</td>
+      <td>${r.reorder.toLocaleString()}</td>
+      <td>${r.max.toLocaleString()}</td>
+      <td>${r.expiry ? thaiDate(r.expiry) : '—'}</td>
+      <td>${r.qtyLeft <= r.min ? '<span class="pill pill-purple">Min</span>' :
+            r.qtyLeft <= r.reorder ? '<span class="pill pill-orange">Reorder</span>' :
+            r.expiry && r.expiry <= expiryThreshold ? '<span class="pill pill-yellow">ใกล้หมดอายุ</span>' :
+            '<span class="pill pill-green">ปกติ</span>'}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="9"><div class="empty-state">ไม่พบข้อมูล</div></td></tr>`;
+}
+
+// ──────────────────────────────────────────────
+//  CHART
+// ──────────────────────────────────────────────
+function populateDrugSelect() {
+  const sel = document.getElementById('drug-multi');
+  if (!sel) return;
+  const names = [...new Set(rawData.map(r => r.name))].sort();
+  sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function renderChart() {
+  const sel = document.getElementById('drug-multi');
+  const selected = [...sel.selectedOptions].map(o => o.value);
+  const fromDate = new Date(document.getElementById('chart-date-from').value);
+  const toDate = new Date(document.getElementById('chart-date-to').value);
+
+  const empty = document.getElementById('chart-empty');
+
+  if (!selected.length) { alert('กรุณาเลือกยาอย่างน้อย 1 ตัว'); return; }
+
+  empty.style.display = 'none';
+
+  // group by drug, filter by date range
+  const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#f97316','#06b6d4','#ec4899'];
+
+  const datasets = selected.map((name, i) => {
+    const pts = rawData
+      .filter(r => r.name === name && r.date >= fromDate && r.date <= toDate)
+      .sort((a,b) => a.date - b.date)
+      .map(r => ({ x: r.date.toISOString().split('T')[0], y: r.qtyLeft }));
+    return {
+      label: name, data: pts,
+      borderColor: colors[i % colors.length],
+      backgroundColor: colors[i % colors.length] + '22',
+      tension: .3, fill: true, pointRadius: 5, pointHoverRadius: 7,
+    };
+  });
+
+  if (chartInstance) chartInstance.destroy();
+
+  const ctx = document.getElementById('trend-chart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8fa3c0', font: { family: 'Tahoma', size: 11 } } },
+        tooltip: { backgroundColor: '#1a2235', borderColor: '#1e2d45', borderWidth: 1,
+          titleColor: '#e2eaf7', bodyColor: '#8fa3c0',
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} หน่วย` }
+        },
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'day', tooltipFormat: 'dd MMM yyyy' },
+          ticks: { color: '#4e6585', font: { size: 10 } }, grid: { color: '#1e2d45' } },
+        y: { ticks: { color: '#4e6585', font: { size: 10 }, callback: v => v.toLocaleString() },
+          grid: { color: '#1e2d45' } },
+      },
+    },
+  });
+}
+
+// ──────────────────────────────────────────────
+//  EXPORT
+// ──────────────────────────────────────────────
+function exportCSV() {
+  const headers = 'วันที่รับเข้า,ชื่อยา,Max,Reorder,Min,Lot,รับเข้า,คงเหลือ,หมดอายุ';
+  const rows = rawData.map(r =>
+    [fmtDate(r.date), r.name, r.max, r.reorder, r.min, r.lot, r.qtyIn, r.qtyLeft,
+     r.expiry ? fmtDate(r.expiry) : ''].join(',')
+  );
+  const csv = '\uFEFF' + [headers, ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'pharmacy_inventory.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
